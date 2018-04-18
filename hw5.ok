@@ -1,0 +1,23 @@
+{
+    "name": "Homework 5",
+    "endpoint": "uic/cs450/sp18/homework5",
+   
+    "src": [
+        "hw5.py"
+    ],
+    "tests": {
+        "tests/01.py": "ok_test"
+    },
+
+    "protocols": [
+        "restore",
+        "export",
+        "file_contents",
+        "analytics",
+        "unlock",
+        "lock",
+        "grading",
+        "scoring",  
+        "backup"
+    ]
+}
