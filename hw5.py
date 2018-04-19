@@ -33,22 +33,29 @@ def send(sock: socket.socket, data: bytes):
     logger = homework5.logging.get_logger("hw5-sender")
     chunk_size = homework5.MAX_PACKET - headerSize
     pause = 2.0
+    RTT = 0
+    sequenceNumber = 0
     offsets = range(0, len(data), chunk_size)
     for chunk in [data[i:i + chunk_size] for i in offsets]:
-
+    	sequenceNumber = i+chunk_size
+    	chunk = struct.pack("i", sequenceNumber) + chunk
         sock.send(chunk)
+        start = time.time()
         logger.info("Pausing for %f seconds", round(pause, 2))
         sock.settimeout(pause)
         #time.sleep(pause)
         while true:
             try:
                 data = sock.recv(headerSize)
-                if data:
+                tempSequenceNumber = struct.unpack("i", data[:4])
+                if tempSequenceNumber is sequenceNumber:
+                	end = time.time()
+                	RTT = end - start
+                	break
             except:
                 sock.send(chunk)
-                
-
-
+                pause = pause + 0.5
+                sock.settimeout(pause)
         
 
 
@@ -68,12 +75,22 @@ def recv(sock: socket.socket, dest: io.BufferedIOBase) -> int:
     # Naive solution, where we continually read data off the socket
     # until we don't receive any more data, and then return.
     num_bytes = 0
+    sequenceNumber = 0
     while True:
         data = sock.recv(homework5.MAX_PACKET)
         if not data:
             break
+        header = data[:4]
+        data = [4:]
+        tempNumber = struct.unpack("i", header)
+        if data[4:] is b'':
+            break
+        
         logger.info("Received %d bytes", len(data))
-        dest.write(data)
-        num_bytes += len(data)
-        dest.flush()
+        if tempNumber > sequenceNumber:
+            sequenceNumber = tempNumber
+            dest.write(data)
+            num_bytes += len(data)
+            dest.flush()
+        sock.send(struct.pack("i", sequenceNumber))
     return num_bytes
