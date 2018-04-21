@@ -32,32 +32,44 @@ def send(sock: socket.socket, data: bytes):
     headerSize = 4
     logger = homework5.logging.get_logger("hw5-sender")
     chunk_size = homework5.MAX_PACKET - headerSize
+    packetCount= 1
     pause = 2.0
-    RTT = 0
+    avgRTT = 0
+    lastRTT = 0
+    tripCount = 1
     sequenceNumber = 0
     offsets = range(0, len(data), chunk_size)
     for chunk in [data[i:i + chunk_size] for i in offsets]:
-    	sequenceNumber = i+chunk_size
-    	chunk = struct.pack("i", sequenceNumber) + chunk
+        sequenceNumber = packetCount * chunk_size
+        packetCount = packetCount + 1
+        chunk = struct.pack("i", sequenceNumber) + chunk
         sock.send(chunk)
         start = time.time()
         logger.info("Pausing for %f seconds", round(pause, 2))
+        if packetCount != 2:
+            pause = computeTimeout(avgRTT, lastRTT)
         sock.settimeout(pause)
-        #time.sleep(pause)
-        while true:
+        
+        while True:
             try:
                 data = sock.recv(headerSize)
-                tempSequenceNumber = struct.unpack("i", data[:4])
-                if tempSequenceNumber is sequenceNumber:
-                	end = time.time()
-                	RTT = end - start
-                	break
+                tempSequenceNumber = struct.unpack("i", data[:4])[0]
+                if tempSequenceNumber == sequenceNumber:
+                    lastRTT = time.time() - start
+                    avgRTT = (( (tripCount -1) * avgRTT) + lastRTT)/(tripCount)
+                    tripCount = tripCount + 1
+                    break
             except:
+                pause = computeTimeout((avgRTT+1.0), pause)
                 sock.send(chunk)
-                pause = pause + 0.5
+                start = time.time()
+                if packetCount == 2:
+                    pause = 2.0
                 sock.settimeout(pause)
         
 
+def computeTimeout(avgRTT, lastRTT):
+    return (0.8* avgRTT) + (.2*lastRTT)
 
 def recv(sock: socket.socket, dest: io.BufferedIOBase) -> int:
     """
@@ -81,8 +93,8 @@ def recv(sock: socket.socket, dest: io.BufferedIOBase) -> int:
         if not data:
             break
         header = data[:4]
-        data = [4:]
-        tempNumber = struct.unpack("i", header)
+        data = data[4:]
+        tempNumber = struct.unpack("i", header)[0]
         if data[4:] is b'':
             break
         
